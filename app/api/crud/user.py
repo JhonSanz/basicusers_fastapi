@@ -67,7 +67,7 @@ def get_user(*, db: Session, user_id: int) -> User:
         )
         .first()
     )
-    print(result.user_role_associations)
+    print(result.user_role_associations[0].__dict__)
     print(result.userasociations)
     return result
 
