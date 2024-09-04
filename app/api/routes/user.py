@@ -35,7 +35,7 @@ def read_user(user_id: int, db: Session = Depends(get_db)):
     return db_user
 
 
-@router.get("/users/", response_model=List[UserBase])
+@router.get("/users/", response_model=List[User])
 def read_users(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     """
     Retrieve a list of users with pagination.

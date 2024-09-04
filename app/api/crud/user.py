@@ -1,16 +1,24 @@
 from typing import List
 from fastapi import Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from app.api.schemas.user import UserCreate, UserUpdate
-from app.database.models import User
+from app.database.models import User, UserRoleAssociation, Role
 from app.api.utils.auth import get_password_hash
-# from app.api.crud.company import get_company
+from app.api.crud.role import get_role
 
 
 def create_user(*, db: Session, user: UserCreate) -> User:
     try:
-        user_exists = get_user_by_identification(db=db, identification=user.identification)
+        if not get_role(db=db, role_id=user.role_id):
+            raise HTTPException(
+                status_code=400, detail=f"Role {user.role_id} not found"
+            )
+
+        user_exists = get_user_by_identification(
+            db=db, identification=user.identification
+        )
         if user_exists:
             raise HTTPException(
                 status_code=400, detail="Identification already registered"
@@ -26,6 +34,15 @@ def create_user(*, db: Session, user: UserCreate) -> User:
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
+
+        user_role_association = UserRoleAssociation(
+            user_id=db_user.id,
+            role_id=user.role_id,
+        )
+        db.add(user_role_association)
+        db.commit()
+        db.refresh(db_user)
+
         return db_user
     except SQLAlchemyError as e:
         db.rollback()
@@ -33,7 +50,26 @@ def create_user(*, db: Session, user: UserCreate) -> User:
 
 
 def get_user(*, db: Session, user_id: int) -> User:
-    return db.query(User).filter(User.id == user_id).first()
+    # stmt = (
+    #     select(User, Role)
+    #     .join(UserRoleAssociation, User.id == UserRoleAssociation.user_id)
+    #     .join(Role, Role.id == UserRoleAssociation.role_id)
+    #     .filter(User.id == user_id)
+    # )
+    # result = db.execute(stmt).all()
+    # print(user_id, result, stmt)
+    # return result
+    result = (
+        db.query(User)
+        .filter(User.id == user_id)
+        .options(
+            joinedload(User.user_role_associations).joinedload(UserRoleAssociation.role)
+        )
+        .first()
+    )
+    print(result.user_role_associations)
+    print(result.userasociations)
+    return result
 
 
 def get_user_by_identification(*, db: Session, identification: str) -> User:
