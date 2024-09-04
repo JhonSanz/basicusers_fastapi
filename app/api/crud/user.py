@@ -2,39 +2,34 @@ from typing import List
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-# from app.api.schemas.user import UserCreate, UserUpdate
+from app.api.schemas.user import UserCreate, UserUpdate
 from app.database.models import User
 from app.api.utils.auth import get_password_hash
 # from app.api.crud.company import get_company
 
 
-# def create_user(*, db: Session, user: UserCreate) -> User:
-#     try:
-#         company = get_company(db=db, company_id=user.company_id)
-#         if not company:
-#             raise HTTPException(status_code=400, detail="Company ID does not exist")
+def create_user(*, db: Session, user: UserCreate) -> User:
+    try:
+        user_exists = get_user_by_identification(db=db, identification=user.identification)
+        if user_exists:
+            raise HTTPException(
+                status_code=400, detail="Identification already registered"
+            )
 
-#         user_exists = get_user_by_identification(db=db, company_id=user.identification)
-#         if user_exists:
-#             raise HTTPException(
-#                 status_code=400, detail="Identification already registered"
-#             )
-
-#         hashed_password = get_password_hash(user.password)
-#         db_user = User(
-#             identification=user.identification,
-#             name=user.name,
-#             password=hashed_password,
-#             phone=user.phone,
-#             company_id=user.company_id,
-#         )
-#         db.add(db_user)
-#         db.commit()
-#         db.refresh(db_user)
-#         return db_user
-#     except SQLAlchemyError as e:
-#         db.rollback()
-#         raise e
+        hashed_password = get_password_hash(password=user.password)
+        db_user = User(
+            identification=user.identification,
+            name=user.name,
+            password=hashed_password,
+            phone=user.phone,
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise e
 
 
 def get_user(*, db: Session, user_id: int) -> User:

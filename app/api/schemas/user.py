@@ -6,7 +6,6 @@ class UserBase(BaseModel):
     identification: str
     name: str
     phone: str
-    company_id: int
 
 
 class UserCreate(UserBase):
