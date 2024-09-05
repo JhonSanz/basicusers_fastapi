@@ -3,12 +3,12 @@ from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException
 from app.database.connection import get_db
 from app.api.crud import role as crud_roles
-from app.api.schemas.role import RoleBase
+from app.api.schemas.role import RoleInDBBase
 
 router = APIRouter()
 
 
-@router.get("/roles/", response_model=List[RoleBase])
+@router.get("/roles/", response_model=List[RoleInDBBase])
 def read_roles(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     """
     Retrieve a list of roles with pagination.

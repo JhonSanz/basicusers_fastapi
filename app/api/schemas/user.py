@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
+from app.api.schemas.role import RoleBase, RoleInDBBase
 
 
 class UserBase(BaseModel):
@@ -19,6 +20,7 @@ class UserUpdate(UserBase):
 
 class UserInDBBase(UserBase):
     id: int
+    roles: List[RoleInDBBase]
 
     class Config:
         orm_mode: True

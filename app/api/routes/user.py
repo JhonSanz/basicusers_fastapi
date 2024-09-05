@@ -3,12 +3,12 @@ from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException
 from app.database.connection import get_db
 from app.api.crud import user as crud_user
-from app.api.schemas.user import User, UserCreate, UserUpdate, UserBase
+from app.api.schemas.user import User, UserCreate, UserUpdate, UserBase, UserInDBBase
 
 router = APIRouter()
 
 
-@router.post("/users/", response_model=User)
+@router.post("/users/", response_model=UserInDBBase)
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
     """
     Create a new user.
@@ -20,7 +20,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     return crud_user.create_user(db=db, user=user)
 
 
-@router.get("/users/{user_id}", response_model=User)
+@router.get("/users/{user_id}", response_model=UserInDBBase)
 def read_user(user_id: int, db: Session = Depends(get_db)):
     """
     Retrieve a user by their ID.
@@ -35,7 +35,7 @@ def read_user(user_id: int, db: Session = Depends(get_db)):
     return db_user
 
 
-@router.get("/users/", response_model=List[User])
+@router.get("/users/", response_model=List[UserInDBBase])
 def read_users(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     """
     Retrieve a list of users with pagination.
@@ -49,7 +49,7 @@ def read_users(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     return users
 
 
-@router.put("/users/{user_id}", response_model=User)
+@router.put("/users/{user_id}", response_model=UserInDBBase)
 def update_user(user_id: int, user: UserUpdate, db: Session = Depends(get_db)):
     """
     Update an existing user by their ID.

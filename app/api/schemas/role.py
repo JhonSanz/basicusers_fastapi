@@ -3,5 +3,11 @@ from typing import List, Optional
 
 
 class RoleBase(BaseModel):
-    id: int
     name: str
+
+
+class RoleInDBBase(RoleBase):
+    id: int
+
+    class Config:
+        orm_mode = True

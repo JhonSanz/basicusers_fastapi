@@ -82,6 +82,10 @@ class User(Base):
         "UserRoleAssociation", back_populates="user"
     )
 
+    @property
+    def roles(self) -> List["Role"]:
+        return [association.role for association in self.user_role_associations]
+
 
 class Permission(Base):
     __tablename__ = "permission"

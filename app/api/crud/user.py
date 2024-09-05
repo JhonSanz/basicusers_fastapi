@@ -1,12 +1,17 @@
 from typing import List
 from fastapi import Depends, HTTPException
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
-from app.api.schemas.user import UserCreate, UserUpdate
-from app.database.models import User, UserRoleAssociation, Role
+from app.api.schemas.user import UserCreate, UserUpdate, UserInDBBase
+from app.api.schemas.role import RoleInDBBase
+from app.database.models import User, UserRoleAssociation, Role, UserPosAssociation
 from app.api.utils.auth import get_password_hash
 from app.api.crud.role import get_role
+
+
+def get_user_by_identification(*, db: Session, identification: str) -> User:
+    return db.query(User).filter(User.identification == identification).first()
 
 
 def create_user(*, db: Session, user: UserCreate) -> User:
@@ -49,34 +54,21 @@ def create_user(*, db: Session, user: UserCreate) -> User:
         raise e
 
 
-def get_user(*, db: Session, user_id: int) -> User:
-    # stmt = (
-    #     select(User, Role)
-    #     .join(UserRoleAssociation, User.id == UserRoleAssociation.user_id)
-    #     .join(Role, Role.id == UserRoleAssociation.role_id)
-    #     .filter(User.id == user_id)
-    # )
-    # result = db.execute(stmt).all()
-    # print(user_id, result, stmt)
-    # return result
+def get_user(*, db: Session, user_id: int) -> UserInDBBase:
     result = (
         db.query(User)
         .filter(User.id == user_id)
         .options(
-            joinedload(User.user_role_associations).joinedload(UserRoleAssociation.role)
+            selectinload(User.user_role_associations).selectinload(
+                UserRoleAssociation.role
+            )
         )
         .first()
     )
-    print(result.user_role_associations[0].__dict__)
-    print(result.userasociations)
     return result
 
 
-def get_user_by_identification(*, db: Session, identification: str) -> User:
-    return db.query(User).filter(User.identification == identification).first()
-
-
-def get_users(*, db: Session, skip: int = 0, limit: int = 10) -> List[User]:
+def get_users(*, db: Session, skip: int = 0, limit: int = 10) -> List[UserInDBBase]:
     return db.query(User).offset(skip).limit(limit).all()
 
 
@@ -102,6 +94,14 @@ def delete_user(*, db: Session, user_id: int) -> bool:
         db_user = db.query(User).filter(User.id == user_id).first()
         if db_user is None:
             return False
+
+        db.query(UserPosAssociation).filter(
+            UserPosAssociation.user_id == user_id
+        ).delete()
+        db.query(UserRoleAssociation).filter(
+            UserRoleAssociation.user_id == user_id
+        ).delete()
+
         db.delete(db_user)
         db.commit()
         return True
