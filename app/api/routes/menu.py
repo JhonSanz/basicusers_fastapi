@@ -23,7 +23,7 @@ def get_menu_by_user_role(
     Retrieve menu given user role.
     """
     try:
-        menu = crud_menu.get_menu(db=db)
+        menu = crud_menu.get_menu(db=db, current_user=current_user)
     except Exception as e:
         print(e)
         return std_response(

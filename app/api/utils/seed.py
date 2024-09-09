@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from app.database.models import Role, Permission, RolePermissionAssociation
 from app.database.connection import engine, Base
+from app.api.utils.auth import SUPERADMIN, ADMIN, GUEST
 
 
 def create_role_if_not_exists(session: Session, role_name: str) -> Role:
@@ -29,7 +30,7 @@ def create_permission_if_not_exists(
 
 
 def seed_roles(session: Session):
-    roles = ["superadmin", "admin", "guest"]
+    roles = [SUPERADMIN, ADMIN, GUEST]
     role_objects = {role: create_role_if_not_exists(session, role) for role in roles}
     return role_objects
 
