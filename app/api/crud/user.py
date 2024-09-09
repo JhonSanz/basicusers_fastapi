@@ -11,12 +11,16 @@ from app.api.utils.exceptions import (
     UserDoesNotExistException,
 )
 from pydantic_core import ValidationError
+from app.api.utils.decorators import validate_res_model_pydantic
+
+from app.api.schemas.role import RoleInDBBase
 
 
 def get_user_by_identification(*, db: Session, identification: str) -> User:
     return db.query(User).filter(User.identification == identification).first()
 
 
+@validate_res_model_pydantic(UserInDBBase)
 def create_user(*, db: Session, user: UserCreate) -> UserInDBBase:
     try:
         if not get_role(db=db, role_id=user.role_id):
@@ -47,9 +51,7 @@ def create_user(*, db: Session, user: UserCreate) -> UserInDBBase:
         db.commit()
         db.refresh(db_user)
 
-        result = UserInDBBase.model_validate(result)
-
-        return result
+        return db_user
     except SQLAlchemyError as e:
         db.rollback()
         raise e
@@ -61,6 +63,7 @@ def create_user(*, db: Session, user: UserCreate) -> UserInDBBase:
         raise Exception
 
 
+@validate_res_model_pydantic(UserInDBBase)
 def get_user(*, db: Session, user_id: int) -> UserInDBBase:
     result = (
         db.query(User)
@@ -75,20 +78,12 @@ def get_user(*, db: Session, user_id: int) -> UserInDBBase:
     if result is None:
         raise UserDoesNotExistException("User does not exist")
 
-    try:
-        result = UserInDBBase.model_validate(result)
-    except ValidationError as e:
-        raise Exception
-
     return result
 
 
-def get_users(*, db: Session, skip: int = 0, limit: int = 10) -> List[User]:
+@validate_res_model_pydantic(UserInDBBase)
+def get_users(*, db: Session, skip: int = 0, limit: int = 10) -> List[UserInDBBase]:
     result = db.query(User).offset(skip).limit(limit).all()
-    try:
-        result = [UserInDBBase.model_validate(user) for user in result]
-    except ValidationError as e:
-        raise Exception
     return result
 
 

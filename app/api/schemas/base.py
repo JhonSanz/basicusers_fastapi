@@ -11,9 +11,6 @@ class StandardResponse(BaseModel, Generic[T]):
     msg: Optional[str] = ""
     data: Optional[T] = None
 
-    class Config:
-        orm_mode = True
-
 
 def std_response(
     *,
