@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import List, Optional
 from app.api.schemas.role import RoleBase, RoleInDBBase
 
@@ -19,11 +19,11 @@ class UserUpdate(UserBase):
 
 
 class UserInDBBase(UserBase):
+    model_config = ConfigDict(from_attributes=True)
+
+
     id: int
     roles: List[RoleInDBBase]
-
-    class Config:
-        orm_mode: True
 
 
 class User(UserInDBBase):

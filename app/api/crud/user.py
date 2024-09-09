@@ -1,33 +1,32 @@
 from typing import List
-from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload, selectinload
-from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from app.api.schemas.user import UserCreate, UserUpdate, UserInDBBase
-from app.api.schemas.role import RoleInDBBase
-from app.database.models import User, UserRoleAssociation, Role, UserPosAssociation
+from app.database.models import User, UserRoleAssociation, UserPosAssociation
 from app.api.utils.auth import get_password_hash
 from app.api.crud.role import get_role
+from app.api.utils.exceptions import (
+    RoleNotFoundException,
+    UserAlreadyExistsException,
+    UserDoesNotExistException,
+)
+from pydantic_core import ValidationError
 
 
 def get_user_by_identification(*, db: Session, identification: str) -> User:
     return db.query(User).filter(User.identification == identification).first()
 
 
-def create_user(*, db: Session, user: UserCreate) -> User:
+def create_user(*, db: Session, user: UserCreate) -> UserInDBBase:
     try:
         if not get_role(db=db, role_id=user.role_id):
-            raise HTTPException(
-                status_code=400, detail=f"Role {user.role_id} not found"
-            )
+            raise RoleNotFoundException(f"Role {user.role_id} not found")
 
         user_exists = get_user_by_identification(
             db=db, identification=user.identification
         )
         if user_exists:
-            raise HTTPException(
-                status_code=400, detail="Identification already registered"
-            )
+            raise UserAlreadyExistsException("Identification already registered")
 
         hashed_password = get_password_hash(password=user.password)
         db_user = User(
@@ -48,10 +47,18 @@ def create_user(*, db: Session, user: UserCreate) -> User:
         db.commit()
         db.refresh(db_user)
 
-        return db_user
+        result = UserInDBBase.model_validate(result)
+
+        return result
     except SQLAlchemyError as e:
         db.rollback()
         raise e
+    except ValidationError as e:
+        db.rollback()
+        raise Exception
+    except Exception:
+        db.rollback()
+        raise Exception
 
 
 def get_user(*, db: Session, user_id: int) -> UserInDBBase:
@@ -65,11 +72,24 @@ def get_user(*, db: Session, user_id: int) -> UserInDBBase:
         )
         .first()
     )
+    if result is None:
+        raise UserDoesNotExistException("User does not exist")
+
+    try:
+        result = UserInDBBase.model_validate(result)
+    except ValidationError as e:
+        raise Exception
+
     return result
 
 
-def get_users(*, db: Session, skip: int = 0, limit: int = 10) -> List[UserInDBBase]:
-    return db.query(User).offset(skip).limit(limit).all()
+def get_users(*, db: Session, skip: int = 0, limit: int = 10) -> List[User]:
+    result = db.query(User).offset(skip).limit(limit).all()
+    try:
+        result = [UserInDBBase.model_validate(user) for user in result]
+    except ValidationError as e:
+        raise Exception
+    return result
 
 
 # def update_user(*, db: Session, user_id: int, user: UserUpdate) -> User:
@@ -89,11 +109,12 @@ def get_users(*, db: Session, skip: int = 0, limit: int = 10) -> List[UserInDBBa
 #         raise e
 
 
-def delete_user(*, db: Session, user_id: int) -> bool:
+def delete_user(*, db: Session, user_id: int):
     try:
         db_user = db.query(User).filter(User.id == user_id).first()
+
         if db_user is None:
-            return False
+            raise UserDoesNotExistException("User does not exist")
 
         db.query(UserPosAssociation).filter(
             UserPosAssociation.user_id == user_id
@@ -104,7 +125,7 @@ def delete_user(*, db: Session, user_id: int) -> bool:
 
         db.delete(db_user)
         db.commit()
-        return True
+        return
     except SQLAlchemyError as e:
         db.rollback()
         raise e

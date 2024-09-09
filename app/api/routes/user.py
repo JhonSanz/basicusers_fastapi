@@ -1,14 +1,22 @@
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import Session
-from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import SQLAlchemyError
+from fastapi import APIRouter, Depends, HTTPException, status
 from app.database.connection import get_db
 from app.api.crud import user as crud_user
-from app.api.schemas.user import User, UserCreate, UserUpdate, UserBase, UserInDBBase
+from app.api.schemas.user import UserCreate, UserUpdate, UserInDBBase
+from app.api.schemas.base import StandardResponse, std_response
+from app.api.utils.exceptions import (
+    RoleNotFoundException,
+    UserAlreadyExistsException,
+    UserDoesNotExistException,
+)
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
 
 
-@router.post("/users/", response_model=UserInDBBase)
+@router.post("/users/", response_model=StandardResponse[UserInDBBase])
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
     """
     Create a new user.
@@ -17,10 +25,41 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
 
     Returns the created user.
     """
-    return crud_user.create_user(db=db, user=user)
+    db_user = None
+    try:
+        db_user = crud_user.create_user(db=db, user=user)
+    except RoleNotFoundException as e:
+        return std_response(
+            status_code=status.HTTP_404_NOT_FOUND, ok=False, msg=str(e), data=None
+        )
+    except UserAlreadyExistsException as e:
+        return std_response(
+            status_code=status.HTTP_400_BAD_REQUEST, ok=False, msg=str(e), data=None
+        )
+    except SQLAlchemyError as e:
+        return std_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ok=False,
+            msg=f"Database error, {str(e)}",
+            data=None,
+        )
+    except Exception as e:
+        print(e)
+        return std_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ok=False,
+            msg=f"An unexpected error occurred",
+            data=None,
+        )
+    return std_response(
+        status_code=status.HTTP_201_CREATED,
+        ok=True,
+        msg="User created successfully.",
+        data=db_user,
+    )
 
 
-@router.get("/users/{user_id}", response_model=UserInDBBase)
+@router.get("/users/{user_id}", response_model=StandardResponse[UserInDBBase])
 def read_user(user_id: int, db: Session = Depends(get_db)):
     """
     Retrieve a user by their ID.
@@ -29,13 +68,32 @@ def read_user(user_id: int, db: Session = Depends(get_db)):
 
     Returns the user with the specified ID, or raises a 404 error if the user is not found.
     """
-    db_user = crud_user.get_user(db=db, user_id=user_id)
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return db_user
+    try:
+        db_user = crud_user.get_user(db=db, user_id=user_id)
+    except UserDoesNotExistException:
+        return std_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            ok=False,
+            msg="User not found",
+            data=None,
+        )
+    except Exception:
+        return std_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ok=False,
+            msg=f"An unexpected error occurred",
+            data=None,
+        )
+    return std_response(
+        status_code=status.HTTP_200_OK,
+        ok=True,
+        msg="",
+        data=db_user,
+    )
 
 
-@router.get("/users/", response_model=List[UserInDBBase])
+# @router.get("/users/", response_model=List[UserInDBBase])
+@router.get("/users/", response_model=StandardResponse[List[UserInDBBase]])
 def read_users(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     """
     Retrieve a list of users with pagination.
@@ -45,8 +103,21 @@ def read_users(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
 
     Returns a list of users.
     """
-    users = crud_user.get_users(db=db, skip=skip, limit=limit)
-    return users
+    try:
+        users = crud_user.get_users(db=db, skip=skip, limit=limit)
+    except Exception:
+        return std_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ok=False,
+            msg=f"An unexpected error occurred",
+            data=None,
+        )
+    return std_response(
+        status_code=status.HTTP_200_OK,
+        ok=True,
+        msg="",
+        data=users,
+    )
 
 
 @router.put("/users/{user_id}", response_model=UserInDBBase)
@@ -65,7 +136,7 @@ def update_user(user_id: int, user: UserUpdate, db: Session = Depends(get_db)):
     return db_user
 
 
-@router.delete("/users/{user_id}", response_model=bool)
+@router.delete("/users/{user_id}", response_model=StandardResponse[UserInDBBase])
 def delete_user(user_id: int, db: Session = Depends(get_db)):
     """
     Delete a user by their ID.
@@ -74,7 +145,33 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 
     Returns `True` if the user was successfully deleted, or raises a 404 error if the user is not found.
     """
-    success = crud_user.delete_user(db=db, user_id=user_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="User not found")
-    return success
+    try:
+        crud_user.delete_user(db=db, user_id=user_id)
+    except UserDoesNotExistException as e:
+        return std_response(
+            status_code=status.HTTP_404_NOT_FOUND,
+            ok=False,
+            msg="User not found",
+            data=None,
+        )
+    except SQLAlchemyError as e:
+        return std_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ok=False,
+            msg=f"Database error, {str(e)}",
+            data=None,
+        )
+    except Exception as e:
+        print(e)
+        return std_response(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ok=False,
+            msg=f"An unexpected error occurred",
+            data=None,
+        )
+    return std_response(
+        status_code=status.HTTP_200_OK,
+        ok=True,
+        msg="",
+        data=None,
+    )
