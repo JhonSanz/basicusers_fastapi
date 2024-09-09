@@ -9,6 +9,7 @@ from app.api.crud import user as crud_user
 from app.api.utils.auth import verify_password
 from app.api.schemas.user import User
 from app.database.connection import get_db
+from app.api.utils.permissions import permission_checker
 
 
 SECRET_KEY = "somethingspecial"
@@ -38,7 +39,7 @@ def create_access_token(*, data: dict, expires_delta: Optional[timedelta] = None
     return encoded_jwt
 
 
-async def get_current_user(
+def get_current_user(
     *, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)
 ):
     credentials_exception = HTTPException(
@@ -59,9 +60,13 @@ async def get_current_user(
     return user
 
 
-async def get_current_active_user(
-    *, current_user: User = Depends(get_current_user),
-):
-    if current_user.disabled:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
+def get_user_with_permission(required_permission: str):
+    def get_current_active_user(
+        current_user: User = Depends(get_current_user),
+    ):
+        # if current_user.disabled:
+        #     raise HTTPException(status_code=400, detail="Inactive user")
+        permission_checker(permission=required_permission, user=current_user)
+        return current_user
+
+    return get_current_active_user

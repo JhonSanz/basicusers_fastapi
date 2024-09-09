@@ -4,13 +4,23 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.database.connection import get_db
 from app.api.crud import role as crud_roles
 from app.api.schemas.role import RoleInDBBase
+from app.api.schemas.user import UserInDBBase
 from app.api.schemas.base import StandardResponse, std_response
+from app.api.crud.auth import get_user_with_permission
 
 router = APIRouter()
 
 
-@router.get("/roles/", response_model=StandardResponse[List[RoleInDBBase]])
-def read_roles(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+@router.get(
+    "/roles/",
+    response_model=StandardResponse[List[RoleInDBBase]],
+)
+def read_roles(
+    skip: int = 0,
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    current_user: UserInDBBase = Depends(get_user_with_permission("role.can_read")),
+):
     """
     Retrieve a list of roles with pagination.
 

@@ -35,7 +35,7 @@ def seed_roles(session: Session):
 
 
 def seed_permissions(session: Session):
-    entities = ["payment", "debt"]
+    entities = ["payment", "debt", "role"]
     actions = ["read", "create", "update", "delete"]
     permissions = [
         f"{entity}.can_{action}" for entity in entities for action in actions

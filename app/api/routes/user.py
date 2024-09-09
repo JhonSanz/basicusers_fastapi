@@ -1,7 +1,7 @@
-from typing import List, Optional
+from typing import List
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Form
 from app.database.connection import get_db
 from app.api.crud import user as crud_user
 from app.api.schemas.user import UserCreate, UserUpdate, UserInDBBase
@@ -11,13 +11,17 @@ from app.api.utils.exceptions import (
     UserAlreadyExistsException,
     UserDoesNotExistException,
 )
-from fastapi.responses import JSONResponse
+from app.api.crud.auth import get_user_with_permission
 
 router = APIRouter()
 
 
 @router.post("/users/", response_model=StandardResponse[UserInDBBase])
-def create_user(user: UserCreate, db: Session = Depends(get_db)):
+def create_user(
+    user: UserCreate,
+    db: Session = Depends(get_db),
+    current_user: UserInDBBase = Depends(get_user_with_permission("user.can_create")),
+):
     """
     Create a new user.
 
@@ -60,7 +64,11 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/users/{user_id}", response_model=StandardResponse[UserInDBBase])
-def read_user(user_id: int, db: Session = Depends(get_db)):
+def read_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserInDBBase = Depends(get_user_with_permission("user.can_read")),
+):
     """
     Retrieve a user by their ID.
 
@@ -92,9 +100,13 @@ def read_user(user_id: int, db: Session = Depends(get_db)):
     )
 
 
-# @router.get("/users/", response_model=List[UserInDBBase])
 @router.get("/users/", response_model=StandardResponse[List[UserInDBBase]])
-def read_users(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+def read_users(
+    skip: int = 0,
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    current_user: UserInDBBase = Depends(get_user_with_permission("user.can_read")),
+):
     """
     Retrieve a list of users with pagination.
 
@@ -121,7 +133,12 @@ def read_users(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
 
 
 @router.put("/users/{user_id}", response_model=UserInDBBase)
-def update_user(user_id: int, user: UserUpdate, db: Session = Depends(get_db)):
+def update_user(
+    user_id: int,
+    user: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserInDBBase = Depends(get_user_with_permission("user.can_update")),
+):
     """
     Update an existing user by their ID.
 
@@ -137,7 +154,11 @@ def update_user(user_id: int, user: UserUpdate, db: Session = Depends(get_db)):
 
 
 @router.delete("/users/{user_id}", response_model=StandardResponse[UserInDBBase])
-def delete_user(user_id: int, db: Session = Depends(get_db)):
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserInDBBase = Depends(get_user_with_permission("user.can_delete")),
+):
     """
     Delete a user by their ID.
 

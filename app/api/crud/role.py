@@ -4,7 +4,6 @@ from app.api.schemas.role import RoleInDBBase
 from app.api.schemas.user import UserInDBBase
 from app.api.utils.exceptions import RoleNotFoundException
 from app.api.utils.decorators import validate_res_model_pydantic
-from pydantic_core import ValidationError
 
 
 
